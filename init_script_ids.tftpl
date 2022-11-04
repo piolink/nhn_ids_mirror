@@ -1,0 +1,128 @@
+#!/bin/bash
+
+make_sysctl_file() {
+cat << 'EOF' > /etc/sysctl.d/90-mirror.conf
+net.ipv4.ip_forward = 0
+net.ipv4.conf.all.arp_filter = 1
+net.ipv4.conf.default.arp_filter = 1
+net.ipv4.conf.all.arp_ignore = 1
+net.ipv4.conf.default.arp_ignore = 1
+EOF
+}
+
+make_init_conf_file() {
+cat << 'EOF' > /etc/default/mirror
+IP_IDSLB=${IP_IDSLB}
+IP_IDS=${IP_IDS}
+INT_EXTERNAL=eth0
+INT_MIRROR=eth1
+INT_INTERNAL=eth2
+ID_VXLAN=100
+PORT_VXLAN=4789
+EOF
+}
+
+make_init_script_file() {
+cat << 'EOF' > /etc/init.d/mirror
+#!/bin/bash
+### BEGIN INIT INFO
+# Provides:  $mirror
+# Required-Start: $network $remote_fs $local_fs
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Description:  Startup ids mirror 
+### END INIT INFO
+
+CONFIG=/etc/default/mirror
+export LANG="C"
+PATH=$PATH:/usr/sbin:/sbin:/usr/bin:/lib/udev
+
+if [ ! -f $CONFIG ]; then
+    echo No Configuration file: $CONFIG
+    exit 1
+fi
+
+. $CONFIG
+
+start_mirror() {
+    ip link add vxlan0 type vxlan id $ID_VXLAN local $IP_IDS remote $IP_IDSLB dev $INT_MIRROR dstport $PORT_VXLAN
+    ip link set vxlan0 up
+
+    arptables -A INPUT -i vxlan0 -j DROP
+    iptables -A FORWARD -i vxlan0 -j DROP
+    ip6tables A FORWARD -i vxlan0 -j DROP
+
+}
+
+do_start() {
+    STATUS=0
+    start_mirror || STATUS=$?
+    return $STATUS
+}
+
+do_stop() { return 0; }
+do_status() { return 0; }
+
+case $1 in
+    start)
+	do_start
+        RC=$?
+        ;;
+    stop)
+	do_stop
+        RC=$?
+        ;;
+    force-stop)
+	do_stop
+        RC=$?
+        ;;
+    restart)
+	do_start
+        RC=$?
+        ;;
+    status)
+	do_status
+        RC=$?
+        ;;
+    *)
+        echo
+        echo "Usage: `basename $0` {start|stop|force-stop|restart|status}"
+        echo
+        exit 1
+        ;;
+    esac
+
+exit $RC
+
+EOF
+
+}
+
+make_config_file() {
+    make_sysctl_file
+    make_init_conf_file
+    make_init_script_file
+    chmod +x /etc/init.d/mirror
+}
+
+
+apply_sysctl() {
+    sysctl --load /etc/sysctl.d/90-mirror.conf
+}
+
+apply_init_script() {
+    systemctl enable mirror
+    systemctl restart mirror
+}
+
+apply_config() {
+    apply_sysctl
+    apply_init_script
+}
+
+main() {
+    make_config_file
+    apply_config
+}
+
+main 

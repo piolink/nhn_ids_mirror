@@ -1,0 +1,13 @@
+provider_user_name   = "xxx@xxx.com"
+provider_tenant_id   = "0123456789abcdefg012345678901234"
+provider_password    = "xxxxxxxxxx"
+vpc = "ids_test_vpc"
+vpc_router = "vpc-e0123456-abcd"
+# IP addresses of IDSLB
+idslb_external_interface_ip  = "10.1.32.101"
+idslb_mirror_interface_ip  = "10.1.33.101"
+idslb_internal_interface_ip  = "10.1.64.101"
+# IP addresses of IDS
+ids_mirror_interface_ip = "10.1.33.102"
+# ssh key pair
+keypair = "ids-mirror-test"
