@@ -5,7 +5,7 @@
 전체 구성 개요
 =========================
 * 네트워크 구성
-    * IDSLB 인스턴스에서 eth0 로 in/out 되는 패킷을  IDSLB eth2와 IDS eth1사이에 생성된 vxlan tunnel을 통해서, IDS로 전송합니다.
+    * IDSLB 인스턴스에서 eth0 로 in/out 되는 패킷을  IDSLB eth1와 IDS eth1사이에 생성된 vxlan tunnel을 통해서, IDS로 전송합니다.
     * ![IDSLB Network overview](./IDSLB_overview.jpg)
 * 본 테라픔으로 자동으로 구성되는 리소스는 아래 같습니다.
     * openstack_networking_port_v2.app_internal
@@ -136,17 +136,15 @@
     * 본 구성의 클라우드 인프라는 NHN클라우드( https://www.toast.com/ )를 기반으로 작성하였습니다. 대부분의 기능은 다른 Openstack 기반의 private/pubic 클라우드 인프라에서도 동작하지만 각 클라우드 환경의 네트워크 구현 특성(특히 VPC 및 Internet GW 구현 특성)에 따라 일부 구성은 정상 동작하지 않습니다.
 * VXLAN의 overhead 및 NHN인프라의 jumbo frame미지원으로 인한 "TCP MSS Clamping" 적용
     * 원본 패킷을 vxlan으로 encap할 경우, 50byte의 추가 헤더 overhead가 발생하게 되므로, 원본 패킷을 vxlan으로 손실 없이 보내려면, 해당 vxlan 인터페이스는 원본 패킷이 rx/tx되는 인터페이스보단 MTU 값이 50 byte가 더 커야합니다.
-    * 하지만, 현재 NHN 네트워크 인프라에서는 인터페이스의 MTU값을 1500보다 크게 설정했을 때 정상 동작하지 않는 것으로 확인(추가 검증 필요) 되어서, vxlan 인터페이스의 MTU를 증가 시키는 대신, IDSLB 인스턴스가 포워팅 하는 TCP 패킷에 대해서  TCP packet의 MSS (maximum segment size) 값을 1410 byte (일반적인 MSS값은 1460byte, vxlan 50 byte overhead를 고려)로 줄이도록 조치
-    * 해당 조치로 TCP 패킷은 정상적으로 vxlan을 통한 mirroring이 가능하지만, IP패킷 size가 1450 byte를 초과하는 UDP/ICMP등의 패킷은 정상적으로 미러링이 되지 않음에 유의
+    * 하지만, 현재 NHN 네트워크 인프라에서는 인터페이스의 MTU값을 1500보다 크게 설정했을 때 정상 동작하지 않는 것으로 확인(추가 검증 필요) 되어서, vxlan 인터페이스의 MTU를 증가 시키는 대신, IDSLB 인스턴스가 포워팅 하는 TCP 패킷에 대해서  TCP packet의 MSS (maximum segment size) 값을 1410 byte (일반적인 MSS값은 1460byte, vxlan 50 byte overhead를 고려)로 줄이도록 조치하였습니다.
+    * 해당 조치로 TCP 패킷은 정상적으로 vxlan을 통한 mirroring이 가능하지만, IP패킷 size가 1450 byte를 초과하는 UDP/ICMP등의 패킷은 정상적으로 미러링이 되지 않음에 유의합니다.
 
 
 향후 개선 필요 사항
 =====================
 * 테라폼 최초 적용 시 네트워크 접근 문제 해결
+    * 현재 테라폼 적용을 두 번 해야 하는 이슈에 대한 정확한 문제 원인을 파악하고 해결
 * 현재 NHN인프라에서 테라폼으로 설정 불가능한 라우팅 정보 등의 설정을 API등을 통해서 설정
 * VXLAN의 overhead 및 TCP MSS clamping  이슈 해결을 위한 터널 encap없는 패킷 전송
-    * IDSLB에서 IDS로 미러 패킷 전달 시 VXLAN 터널로 encap하는 방식이 아니라, 패킷의 destination MAC주소를 IDS의 MAC 주소로 변경하여 패킷을 전달하는 방식으로 개선
-    * 현재 대부분의 IDS구현에서는 MAC주소 기반으로 동작하는 보안 기능등이 거의 없으므로, 보안성 측면에서는 문제가 되지 않을 것으로 예상됨
-
-
-
+    * IDSLB에서 IDS로 미러 패킷 전달 시 VXLAN 터널로 encap하는 방식이 아니라, 패킷의 destination MAC주소를 IDS의 MAC 주소로 변경하여 패킷을 전달하는 방식으로 개선 가능합니ㅏ다.
+    * 현재 대부분의 IDS구현에서는 MAC주소 기반으로 동작하는 보안 기능등이 거의 없으므로, 보안성 측면에서는 문제가 되지 않을 것으로 예상됩니다.
